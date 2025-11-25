@@ -19,7 +19,7 @@ namespace Biblioteka.Controllers
     {
         private readonly BibliotekaContext _context;
         private const string KoszykSessionKey = "KsiazkiKoszyk";
-        private const int MaxBooksLimit = 5; // Definicja limitu (zgodnie z UserPage)
+        private const int MaxBooksLimit = 5; // limit książek
 
         public WypozyczenieController(BibliotekaContext context)
         {
@@ -35,7 +35,7 @@ namespace Biblioteka.Controllers
                 : JsonSerializer.Deserialize<List<int>>(sessionData) ?? new List<int>();
         }
 
-        // AKCJA 1: Finalizacja Wypożyczenia z Koszyka (z egzekwowaniem limitu)
+        // wypożyczenie z koszyka
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> FinalizeWypozyczenie(int okresWypozyczenia)
@@ -57,7 +57,7 @@ namespace Biblioteka.Controllers
 
             var user = await _context.Users.FindAsync(userId);
 
-            // 1. BLOKADA: Sprawdzenie, czy użytkownik jest zablokowany
+            // czy user jest zablokowany
             if (user!.IsBlocked)
             {
                 TempData["Message"] = $"Twoje konto jest zablokowane z powodu niezapłaconych kar lub zaległych książek. Skontaktuj się z obsługą.";
@@ -68,7 +68,7 @@ namespace Biblioteka.Controllers
                 .Where(k => koszykIds.Contains(k.Id))
                 .ToListAsync();
 
-            // 1. WALIDACJA LIMITU
+            // limit wypożyczeń
             int currentBorrowedCount = user!.iloscWypKsiazek;
             int newBooksCount = ksiazkiDoWypozyczenia.Count;
 
@@ -86,14 +86,14 @@ namespace Biblioteka.Controllers
             }
 
 
-            // 2. WALIDACJA DOSTĘPNOŚCI KSIĄŻEK
+            // dostępność książek
             if (ksiazkiDoWypozyczenia.Any(k => k.stan != "Dostępna"))
             {
                 TempData["Message"] = "Błąd: Co najmniej jedna książka w koszyku nie jest już dostępna do wypożyczenia.";
                 return RedirectToAction("ViewBasket", "Ksiazka");
             }
 
-            // 3. TRANSAKCJA I ZAPIS
+            // transakcja + zapis
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -103,7 +103,7 @@ namespace Biblioteka.Controllers
 
                 foreach (var ksiazka in ksiazkiDoWypozyczenia)
                 {
-                    // a) Tworzenie rekordu Wypożyczenia
+                    // tworzenie wypożyczenia 
                     var noweWypozyczenie = new Wypozyczenie
                     {
                         UserId = userId,
@@ -114,14 +114,13 @@ namespace Biblioteka.Controllers
                     };
                     _context.Wypozyczenia.Add(noweWypozyczenie);
 
-                    // b) Aktualizacja stanu Książki
                     ksiazka.stan = "Wypożyczona";
                     _context.Ksiazki.Update(ksiazka);
 
                     liczbaWypozyczonych++;
                 }
 
-                // c) Aktualizacja licznika u Użytkownika
+                // licznik wypożyczeń ++
                 user!.iloscWypKsiazek += liczbaWypozyczonych;
                 _context.Users.Update(user);
 
@@ -141,12 +140,12 @@ namespace Biblioteka.Controllers
             }
         }
 
-        // AKCJA 2: Lista wszystkich aktywnych wypożyczeń (dla Pracownika/Admina)
+        // lista aktywnych wypożyczeń dla workera i admina
         [HttpGet]
         [Authorize(Roles = "worker,admin")]
         public async Task<IActionResult> Index(string? searchString, bool? overdue)
         {
-            // 1. Budowanie zapytania bazowego
+            // base zapytanie
             var wypozyczeniaQuery = _context.Wypozyczenia
                 .Where(w => w.FaktycznaDataZwrotu == null) // Tylko aktywne wypożyczenia
                 .Include(w => w.User)
@@ -154,13 +153,13 @@ namespace Biblioteka.Controllers
                     .ThenInclude(k => k.Kategoria)
                 .AsQueryable();
 
-            // 2. Filtrowanie po terminie (przeterminowane)
+            // przeterminowane
             if (overdue.HasValue && overdue.Value)
             {
                 wypozyczeniaQuery = wypozyczeniaQuery.Where(w => w.OczekiwanaDataZwrotu < DateTime.Now);
             }
 
-            // 3. Wyszukiwanie tekstowe (po tytule książki lub nazwisku użytkownika)
+            // wyszukiwanie tekstowe
             if (!string.IsNullOrEmpty(searchString))
             {
                 searchString = searchString.ToLower();
@@ -170,7 +169,7 @@ namespace Biblioteka.Controllers
                     w.User!.Imie.ToLower().Contains(searchString));
             }
 
-            // 4. Pobranie i sortowanie
+            // pobieranie i sort
             var aktywneWypozyczenia = await wypozyczeniaQuery
                 .OrderBy(w => w.OczekiwanaDataZwrotu)
                 .ToListAsync();
@@ -181,7 +180,7 @@ namespace Biblioteka.Controllers
             return View(aktywneWypozyczenia);
         }
 
-        // AKCJA 3: Obsługa zwrotu książki (z logiką aktywacji rezerwacji)
+        // zwrot książki
         [HttpPost]
         [Authorize(Roles = "worker,admin")]
         public async Task<IActionResult> Return(int id) // ID Wypożyczenia
@@ -200,32 +199,31 @@ namespace Biblioteka.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // a) Aktualizacja rekordu Wypożyczenia
+                // aktualizacja wypożyczenia
                 wypozyczenie.FaktycznaDataZwrotu = DateTime.Now;
                 _context.Wypozyczenia.Update(wypozyczenie);
 
-                // d) Aktualizacja licznika u Użytkownika
+                // licznik usera --
                 wypozyczenie.User!.iloscWypKsiazek--;
                 _context.Users.Update(wypozyczenie.User);
 
-                // 1. Znajdź pierwszą aktywną rezerwację dla tej książki
+                // pierwsza aktywna rezerwacja dla książki
                 var najstarszaRezerwacja = await _context.Rezerwacje
                     .Where(r => r.KsiazkaId == wypozyczenie.KsiazkaId && r.IsActive)
                     .Include(r => r.User)
                     .OrderBy(r => r.DataRezerwacji)
                     .FirstOrDefaultAsync();
 
-                // 2. Aktualizacja stanu Książki i AKTYWACJA REZERWACJI
+                // akutalizacja stanu książki
                 if (najstarszaRezerwacja != null)
                 {
-                    // Ustawiamy nowy status: czeka na odbiór (rezerwacja aktywowana)
                     wypozyczenie.Ksiazka.stan = "Gotowa do Odbioru";
 
-                    // Ustawiamy DataWygasniecia rezerwacji na nowy termin (2 dni na odbiór)
+                    // 2 dni na odbiór
                     najstarszaRezerwacja.DataWygasniecia = DateTime.Now.AddDays(2);
                     _context.Rezerwacje.Update(najstarszaRezerwacja);
 
-                    // Komunikat dla personelu
+                    // dla personelu info
                     TempData["Message"] = $"Zwrócono '{wypozyczenie.Ksiazka.tytul}'. Stan: GOTOWA DO ODBIORU. Aktywowano rezerwację dla: {najstarszaRezerwacja.User?.email}. Termin odbioru: {najstarszaRezerwacja.DataWygasniecia.ToShortDateString()}.";
                 }
                 else
@@ -248,7 +246,7 @@ namespace Biblioteka.Controllers
             }
         }
 
-        // AKCJA 4: Przedłużenie wypożyczenia
+        // przedluzenie
         [HttpPost]
         [Authorize(Roles = "user")]
         public async Task<IActionResult> Extend(int wypozyczenieId, int dni)
@@ -263,7 +261,7 @@ namespace Biblioteka.Controllers
                 return RedirectToAction("UserPage", "Home");
             }
 
-            // Blokada Przedłużenia: Sprawdzenie, czy na książkę istnieje aktywna rezerwacja
+            // blokada przedluzenia
             var maRezerwacje = await _context.Rezerwacje
                 .AnyAsync(r => r.KsiazkaId == wypozyczenie.KsiazkaId && r.IsActive);
 
@@ -273,23 +271,20 @@ namespace Biblioteka.Controllers
                 return RedirectToAction("UserPage", "Home");
             }
 
-            // Blokada Przedłużenia: Tylko jedno przedłużenie jest dozwolone
+            // tylko jedno przedluzenie moze byc
             if (wypozyczenie.Przedluzono)
             {
                 TempData["Message"] = $"Nie można przedłużyć wypożyczenia książki '{wypozyczenie.Ksiazka.tytul}' po raz kolejny.";
                 return RedirectToAction("UserPage", "Home");
             }
 
-            // Używamy zmiennej lokalnej do celów wyświetlania (naprawa błędu "0 dni")
             int dniPrzedluzenia = dni;
 
-            // Aktualizacja daty zwrotu
+            // update daty zwrotu
             wypozyczenie.OczekiwanaDataZwrotu = wypozyczenie.OczekiwanaDataZwrotu.AddDays(dni);
             wypozyczenie.Przedluzono = true;
             _context.Wypozyczenia.Update(wypozyczenie);
             await _context.SaveChangesAsync();
-
-            // Używamy zmiennej dniPrzedluzenia w komunikacie
             TempData["Message"] = $"Pomyślnie przedłużono wypożyczenie książki '{wypozyczenie.Ksiazka.tytul}' o {dniPrzedluzenia} dni. Nowy termin zwrotu: {wypozyczenie.OczekiwanaDataZwrotu.ToShortDateString()}.";
             return RedirectToAction("UserPage", "Home");
         }

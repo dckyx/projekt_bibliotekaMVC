@@ -20,12 +20,11 @@ namespace Biblioteka.Models
 
         [DataType(DataType.Date)]
         [Display(Name = "Wygasa")]
-        public DateTime DataWygasniecia { get; set; } // Termin, do którego rezerwacja musi być odebrana
+        public DateTime DataWygasniecia { get; set; }
 
         [Display(Name = "Aktywna")]
-        public bool IsActive { get; set; } = true; // Czy rezerwacja jest aktywna (nie została odebrana/anulowana)
+        public bool IsActive { get; set; } = true; 
 
-        // Właściwości Nawigacyjne
         public User? User { get; set; }
         public Ksiazka? Ksiazka { get; set; }
     }

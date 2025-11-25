@@ -17,7 +17,6 @@ namespace Biblioteka.Models
 
         public DateTime DataZapisu { get; set; }
 
-        // Klucz obcy do użytkownika
         public int UserId { get; set; }
 
         [ForeignKey("UserId")]

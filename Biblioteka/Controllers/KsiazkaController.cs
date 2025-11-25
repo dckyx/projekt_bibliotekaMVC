@@ -4,13 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.AspNetCore.Http;
 using System.Text.Json;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using System.Security.Claims;
-using System;
 
 namespace Biblioteka.Controllers
 {

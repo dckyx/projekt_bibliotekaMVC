@@ -21,7 +21,6 @@ public class User
     public int iloscWypKsiazek { get; set; } = 0;
 
     public string Rola { get; set; } = "user";
-    // DODANE: Pola do obsługi kar
     [Display(Name = "Saldo Kar")]
     public decimal Kara { get; set; } = 0.00M;
 
@@ -44,17 +43,13 @@ public class Ksiazka
 
     public string stan { get; set; } = string.Empty;
 
-    // NOWE POLE: Spis Treści (Używamy string?, ponieważ może być duży/opcjonalny)
     [Display(Name = "Spis Treści")]
     public string? SpisTresci { get; set; }
 
     [Display(Name = "Kategoria")]
     public int KategoriaId { get; set; }
 
-    // Właściwość nawigacyjna
     public Kategoria? Kategoria { get; set; }
 
-    // [Display(Name = "Zarezerwowana")]
-    // public bool IsReserved { get; set; } = false;
 
 }

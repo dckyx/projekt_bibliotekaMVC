@@ -7,10 +7,10 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Security.Claims;
 
 namespace Biblioteka.Controllers
 {
-    // Ograniczony tylko dla Administratora
     [Authorize(Roles = "admin")]
     public class UserController : Controller
     {
@@ -21,91 +21,78 @@ namespace Biblioteka.Controllers
             _context = context;
         }
 
-        // GET: User/Index
         [HttpGet]
         public async Task<IActionResult> Index()
         {
-            var users = await _context.Users
-                .OrderBy(u => u.Nazwisko)
-                .ToListAsync();
+            var users = await _context.Users.OrderBy(u => u.Nazwisko).ToListAsync();
             return View(users);
         }
 
-        // GET: User/Edit/5
         [HttpGet]
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var user = await _context.Users.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            var availableRoles = new List<string> { "user", "worker", "admin" };
+            if (user == null) return NotFound();
 
             var viewModel = new UserRoleViewModel
             {
                 User = user,
-                AvailableRoles = new SelectList(availableRoles, user.Rola)
+                AvailableRoles = new SelectList(new List<string> { "user", "worker", "admin" }, user.Rola)
             };
-
             return View(viewModel);
         }
 
-        // POST: User/Edit/5 - Używa TryUpdateModelAsync do bezpiecznej aktualizacji
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, UserRoleViewModel viewModel)
         {
-            if (id != viewModel.User.Id)
-            {
-                return NotFound();
-            }
+            if (id != viewModel.User.Id) return NotFound();
 
             var userToUpdate = await _context.Users.FindAsync(id);
+            if (userToUpdate == null) return NotFound();
 
-            if (userToUpdate == null)
-            {
-                return NotFound();
-            }
-
-            // Używamy TryUpdateModelAsync do bezpiecznej aktualizacji wybranych pól
-            if (await TryUpdateModelAsync<User>(
-                userToUpdate,
-                "User",
-                u => u.Rola, u => u.Kara, u => u.IsBlocked)) // DODANE: u.Kara i u.IsBlocked
+            if (await TryUpdateModelAsync<User>(userToUpdate, "User", u => u.Rola, u => u.Kara, u => u.IsBlocked))
             {
                 try
                 {
-                    if (ModelState.IsValid)
-                    {
-                        await _context.SaveChangesAsync();
-                        TempData["Message"] = $"Status użytkownika '{userToUpdate.email}' został zaktualizowany. Blokada: {userToUpdate.IsBlocked}, Kara: {userToUpdate.Kara} PLN.";
-                        return RedirectToAction(nameof(Index));
-                    }
+                    await _context.SaveChangesAsync();
+                    TempData["Message"] = $"Dane użytkownika '{userToUpdate.email}' zostały zaktualizowane.";
+                    return RedirectToAction(nameof(Index));
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!_context.Users.Any(e => e.Id == id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    if (!_context.Users.Any(e => e.Id == id)) return NotFound();
+                    else throw;
                 }
             }
-
-            // Ponowne ładowanie SelectList
-            var availableRoles = new List<string> { "user", "worker", "admin" };
-            viewModel.AvailableRoles = new SelectList(availableRoles, viewModel.User.Rola);
+            viewModel.AvailableRoles = new SelectList(new List<string> { "user", "worker", "admin" }, viewModel.User.Rola);
             return View(viewModel);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var userToDelete = await _context.Users.FindAsync(id);
+            if (userToDelete == null)
+            {
+                TempData["Message"] = "Nie znaleziono użytkownika.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userToDelete.Id.ToString() == currentUserId)
+            {
+                TempData["Message"] = "Nie można usunąć własnego konta.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            _context.Users.Remove(userToDelete);
+            await _context.SaveChangesAsync();
+
+            TempData["Message"] = $"Użytkownik {userToDelete.email} został usunięty.";
+            return RedirectToAction(nameof(Index));
         }
     }
 }

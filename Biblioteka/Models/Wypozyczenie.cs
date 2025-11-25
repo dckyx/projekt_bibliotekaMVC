@@ -8,14 +8,12 @@ namespace Biblioteka.Models
     {
         public int Id { get; set; }
 
-        // Klucze Obce
         [Display(Name = "Użytkownik")]
         public int UserId { get; set; }
 
         [Display(Name = "Książka")]
         public int KsiazkaId { get; set; }
 
-        // Dane Wypożyczenia
         [DataType(DataType.Date)]
         [Display(Name = "Data Wypożyczenia")]
         public DateTime DataWypozyczenia { get; set; } = DateTime.Now;
@@ -26,15 +24,14 @@ namespace Biblioteka.Models
 
         [DataType(DataType.Date)]
         [Display(Name = "Faktyczna Data Zwrotu")]
-        public DateTime? FaktycznaDataZwrotu { get; set; } // Może być null, jeśli książka jest wypożyczona
+        public DateTime? FaktycznaDataZwrotu { get; set; } 
 
         [Display(Name = "Przedłużono")]
         public bool Przedluzono { get; set; } = false;
 
-        // Właściwości Nawigacyjne
         public User? User { get; set; }
         public Ksiazka? Ksiazka { get; set; }
 
-        public DateTime? DataZwrotu { get; set; } // Dodanie znaku '?'
+        public DateTime? DataZwrotu { get; set; }
     }
 }

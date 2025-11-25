@@ -10,13 +10,12 @@
     <div class="alert alert-info mt-3">@((string)TempData["Message"]!)</div>
 }
 
-<table class="table">
+<table class="table table-striped">
     <thead>
         <tr>
-            <th>@Html.DisplayNameFor(model => model.Imie)</th>
-            <th>@Html.DisplayNameFor(model => model.Nazwisko)</th>
-            <th>@Html.DisplayNameFor(model => model.email)</th>
-            <th>@Html.DisplayNameFor(model => model.Rola)</th>
+            <th>Imię i Nazwisko</th>
+            <th>Email</th>
+            <th>Rola</th>
             <th>Wypożyczone</th>
             <th>Akcje</th>
         </tr>
@@ -25,17 +24,24 @@
         @foreach (var item in Model)
         {
             <tr>
-                <td>@Html.DisplayFor(modelItem => item.Imie)</td>
-                <td>@Html.DisplayFor(modelItem => item.Nazwisko)</td>
-                <td>@Html.DisplayFor(modelItem => item.email)</td>
+                <td>@item.Imie @item.Nazwisko</td>
+                <td>@item.email</td>
                 <td>
                     <span class="badge @(item.Rola == "admin" ? "bg-danger" : item.Rola == "worker" ? "bg-warning text-dark" : "bg-primary")">
-                        @Html.DisplayFor(modelItem => item.Rola)
+                        @item.Rola
                     </span>
                 </td>
-                <td>@Html.DisplayFor(modelItem => item.iloscWypKsiazek)</td>
+                <td>@item.iloscWypKsiazek</td>
                 <td>
-                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">Edytuj Rolę</a>
+                    <div class="d-flex">
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary me-2">Edytuj</a>
+                        <form asp-action="Delete" method="post" asp-route-id="@item.Id">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Czy na pewno chcesz usunąć użytkownika @item.email?');">
+                                Usuń
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
         }

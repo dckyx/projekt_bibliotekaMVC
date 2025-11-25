@@ -32,7 +32,7 @@ namespace Biblioteka.Controllers
         [HttpGet]
         public async Task<IActionResult> Create()
         {
-            // Przekazanie listy dostępnych rodziców do widoku
+            // lista dostępnych rodziców do widoku
             ViewBag.ParentId = new SelectList(
                 await _context.Kategorie.OrderBy(k => k.Nazwa).ToListAsync(),
                 "Id",
@@ -54,7 +54,7 @@ namespace Biblioteka.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Ponowne ładowanie listy rodziców w przypadku błędu
+            // lista rodziców jeśli wywali błąd
             ViewBag.ParentId = new SelectList(
                 await _context.Kategorie.OrderBy(k => k.Nazwa).ToListAsync(),
                 "Id",
@@ -79,7 +79,7 @@ namespace Biblioteka.Controllers
                 return NotFound();
             }
 
-            // Lista wszystkich kategorii (jako potencjalni rodzice, z wyłączeniem edytowanej)
+            // lista wszystkich kategorii
             ViewBag.ParentId = new SelectList(
                 await _context.Kategorie.Where(k => k.Id != id).OrderBy(k => k.Nazwa).ToListAsync(),
                 "Id",
@@ -121,7 +121,7 @@ namespace Biblioteka.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Ponowne ładowanie ParentId w razie błędu walidacji
+            // ładowanie ParentID w wypadku błędu
             ViewBag.ParentId = new SelectList(
                 await _context.Kategorie.Where(k => k.Id != id).OrderBy(k => k.Nazwa).ToListAsync(),
                 "Id",
@@ -149,7 +149,7 @@ namespace Biblioteka.Controllers
                 return NotFound();
             }
 
-            // Sprawdzenie, czy kategoria jest używana
+            // czy kategoria jest używana sprawdzenie
             var uzywaneKsiazki = await _context.Ksiazki.CountAsync(k => k.KategoriaId == id);
             var uzywaneDzieci = await _context.Kategorie.CountAsync(k => k.ParentId == id);
 
@@ -167,7 +167,7 @@ namespace Biblioteka.Controllers
         {
             var kategoria = await _context.Kategorie.FindAsync(id);
 
-            // Sprawdzenie, czy kategoria jest pusta przed usunięciem
+            // czy kategoria jest pusta przed usunieciem
             var uzywaneKsiazki = await _context.Ksiazki.AnyAsync(k => k.KategoriaId == id);
             var uzywaneDzieci = await _context.Kategorie.AnyAsync(k => k.ParentId == id);
 
